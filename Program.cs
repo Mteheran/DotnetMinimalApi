@@ -1,7 +1,9 @@
 using System;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
@@ -14,9 +16,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
 }
-app.UseSwagger();
 
 app.MapGet("/", (Func<string>)(() => "Hello World!"));
+app.MapGet("/date", (() => DateTime.Now.ToLongDateString()));
+
 app.MapGet("/todoitems", async (http) =>
 {
     var dbContext = http.RequestServices.GetService<TodoDbContext>();
@@ -25,24 +28,7 @@ app.MapGet("/todoitems", async (http) =>
     await http.Response.WriteAsJsonAsync(todoItems);
 });
 
-app.MapGet("/todoitems/{id}", async (http) =>
-{
-    if (!http.Request.RouteValues.TryGetValue("id", out var id))
-    {
-        http.Response.StatusCode = 400;
-        return;
-    }
 
-    var dbContext = http.RequestServices.GetService<TodoDbContext>();
-    var todoItem = await dbContext.TodoItems.FindAsync(int.Parse(id.ToString()));
-    if (todoItem == null)
-    {
-        http.Response.StatusCode = 404;
-        return;
-    }
-
-    await http.Response.WriteAsJsonAsync(todoItem);
-});
 
 app.MapPost("/todoitems", async (http) =>
 {
@@ -96,6 +82,37 @@ app.MapDelete("/todoitems/{id}", async (http) =>
 
     http.Response.StatusCode = 204;
 });
+
+ app.MapGet("/todoitems/{id}", async ([FromServices] TodoDbContext dbContext, int id) =>
+    {
+    
+        var todoItem = await dbContext.TodoItems.FindAsync(id);
+        if (todoItem == null)
+        {        
+            return Results.NotFound();
+        }
+
+        return Results.Ok(todoItem);
+    });
+
+//app.UseEndpoints( endpoints => 
+//{
+//    endpoints.MapGet("/todoitems/{id}", async ([FromServices] TodoDbContext dbContext, int id) =>
+//    {
+    
+//        var todoItem = await dbContext.TodoItems.FindAsync(id);
+//        if (todoItem == null)
+//        {        
+//            return Results.NotFound();
+//        }
+
+//        return Results.Ok();
+//    });
+
+//});
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 await app.RunAsync();
 
